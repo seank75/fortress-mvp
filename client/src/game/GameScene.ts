@@ -90,6 +90,14 @@ export class GameScene extends Phaser.Scene {
     private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
     private keySpace!: Phaser.Input.Keyboard.Key;
     private keyR!: Phaser.Input.Keyboard.Key;
+    private keyMoveLeft!: Phaser.Input.Keyboard.Key;
+    private keyMoveRight!: Phaser.Input.Keyboard.Key;
+
+    private isMoveLeftDown: boolean = false;
+    private isMoveRightDown: boolean = false;
+    private moveBtnLeft!: Phaser.GameObjects.Container;
+    private moveBtnRight!: Phaser.GameObjects.Container;
+    private moveProgressBar!: Phaser.GameObjects.Graphics;
 
     preload() {
         this.load.image("tankA", "assets/tankA.png");
@@ -142,8 +150,59 @@ export class GameScene extends Phaser.Scene {
         this.cursors = this.input.keyboard!.createCursorKeys();
         this.keySpace = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
         this.keyR = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.R);
+        this.keyMoveLeft = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.COMMA); // <
+        this.keyMoveRight = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.PERIOD); // >
 
         this.createOnScreenControls(HX, HY + HH + 10);
+
+        // ── Move UI ──
+        this.moveProgressBar = this.add.graphics({ x: 0, y: 0 }).setDepth(30).setVisible(false);
+
+        const makeMoveBtn = (iconStr: string, isLeft: boolean) => {
+            const btnBg = this.add.graphics();
+            const btnSize = 30;
+            btnBg.fillStyle(0x000000, 0.6);
+            btnBg.fillRoundedRect(-btnSize / 2, -btnSize / 2, btnSize, btnSize, 6);
+            btnBg.lineStyle(2, 0xaaaaaa, 0.8);
+            btnBg.strokeRoundedRect(-btnSize / 2, -btnSize / 2, btnSize, btnSize, 6);
+
+            const icon = this.add.text(0, 0, iconStr, {
+                fontFamily: 'Arial',
+                fontSize: '18px',
+                color: '#ffffff'
+            }).setOrigin(0.5);
+
+            const container = this.add.container(0, 0, [btnBg, icon]).setDepth(30).setVisible(false);
+
+            const btnZone = this.add.zone(0, 0, btnSize, btnSize).setInteractive({ useHandCursor: true });
+            container.add(btnZone);
+
+            btnZone.on('pointerdown', () => {
+                if (isLeft) this.isMoveLeftDown = true;
+                else this.isMoveRightDown = true;
+                btnBg.clear();
+                btnBg.fillStyle(0xffffff, 0.7);
+                btnBg.fillRoundedRect(-btnSize / 2, -btnSize / 2, btnSize, btnSize, 6);
+                btnBg.lineStyle(2, 0xaaaaaa, 0.8);
+                btnBg.strokeRoundedRect(-btnSize / 2, -btnSize / 2, btnSize, btnSize, 6);
+            });
+            const handleUp = () => {
+                if (isLeft) this.isMoveLeftDown = false;
+                else this.isMoveRightDown = false;
+                btnBg.clear();
+                btnBg.fillStyle(0x000000, 0.6);
+                btnBg.fillRoundedRect(-btnSize / 2, -btnSize / 2, btnSize, btnSize, 6);
+                btnBg.lineStyle(2, 0xaaaaaa, 0.8);
+                btnBg.strokeRoundedRect(-btnSize / 2, -btnSize / 2, btnSize, btnSize, 6);
+            };
+            btnZone.on('pointerup', handleUp);
+            btnZone.on('pointerout', handleUp);
+
+            return container;
+        };
+
+        this.moveBtnLeft = makeMoveBtn('◀', true);
+        this.moveBtnRight = makeMoveBtn('▶', false);
 
         this.sprTankA = this.add.image(0, 0, "tankA").setOrigin(0.5, 0.8).setDepth(2);
         this.sprTankB = this.add.image(0, 0, "tankB").setOrigin(0.5, 0.8).setDepth(2);
@@ -462,6 +521,34 @@ export class GameScene extends Phaser.Scene {
                 if (rightDown) t.angleDeg = clamp(t.angleDeg - 0.8 * angleDir, 0, 180);
                 if (upDown) t.power = clamp(t.power + 0.7, 0, 100);
                 if (downDown) t.power = clamp(t.power - 0.7, 0, 100);
+
+                // 탱크 이동 처리
+                const moveSpeed = 40; // px/s
+                const moveDt = moveSpeed * (deltaMs / 1000);
+                let isMoving = false;
+
+                if (t.moveRemaining > 0) {
+                    const doMoveLeft = this.keyMoveLeft.isDown || this.isMoveLeftDown;
+                    const doMoveRight = this.keyMoveRight.isDown || this.isMoveRightDown;
+
+                    if (doMoveLeft && !doMoveRight) {
+                        const actualMove = Math.min(moveDt, t.moveRemaining);
+                        t.x -= actualMove;
+                        t.moveRemaining -= actualMove;
+                        isMoving = true;
+                    } else if (doMoveRight && !doMoveLeft) {
+                        const actualMove = Math.min(moveDt, t.moveRemaining);
+                        t.x += actualMove;
+                        t.moveRemaining -= actualMove;
+                        isMoving = true;
+                    }
+
+                    if (isMoving) {
+                        t.x = clamp(t.x, 20, WORLD_W - 20); // 화면 안 벗어나게
+                        t.y = this.terrain.heightAt(t.x) - 18; // 지형 높이에 맞춤
+                        this.updateTankAngles(); // 각도 재조정
+                    }
+                }
 
                 if (Phaser.Input.Keyboard.JustDown(this.keySpace)) {
                     this.fire(t);
@@ -1101,6 +1188,8 @@ export class GameScene extends Phaser.Scene {
         this.projectile = null;
 
         const t = this.tanks[this.currentTurn];
+        t.moveRemaining = t.maxMove; // 턴 시작시 이동력 초기화
+
         this.cameras.main.stopFollow();
         this.cameras.main.pan(t.x, GAME_H * 0.5, 220, "Sine.easeInOut");
     }
@@ -1637,6 +1726,43 @@ export class GameScene extends Phaser.Scene {
         } else {
             this.sprBullet.setVisible(false);
             this.trailPoints = [];
+        }
+
+        // ── Move UI 업데이트 ──
+        this.moveBtnLeft.setVisible(false);
+        this.moveBtnRight.setVisible(false);
+        this.moveProgressBar.setVisible(false);
+
+        if (this.phase === "AIMING" && this.currentTurn === "A" && this.tanks.A.moveRemaining > 0) {
+            const ta = this.tanks.A;
+            // 버튼 위치
+            this.moveBtnLeft.setPosition(ta.x - 35, ta.y - 12);
+            this.moveBtnRight.setPosition(ta.x + 35, ta.y - 12);
+            this.moveBtnLeft.setVisible(true);
+            this.moveBtnRight.setVisible(true);
+
+            // 게이지바 (이동 중이거나 버튼을 누르고 있을 때만)
+            if (this.keyMoveLeft.isDown || this.isMoveLeftDown || this.keyMoveRight.isDown || this.isMoveRightDown) {
+                this.moveProgressBar.setVisible(true);
+                this.moveProgressBar.clear();
+                const bw = 40;
+                const bh = 6;
+                const bx = ta.x - bw / 2;
+                const by = ta.y - 45;
+
+                // 배경
+                this.moveProgressBar.fillStyle(0x000000, 0.6);
+                this.moveProgressBar.fillRoundedRect(bx - 2, by - 2, bw + 4, bh + 4, 3);
+                // 빈 바
+                this.moveProgressBar.fillStyle(0x333333, 0.8);
+                this.moveProgressBar.fillRoundedRect(bx, by, bw, bh, 2);
+                // 채움 바 (초록색)
+                const fillRatio = Math.max(0, ta.moveRemaining / ta.maxMove);
+                this.moveProgressBar.fillStyle(0x55ff55, 0.9);
+                if (fillRatio > 0) {
+                    this.moveProgressBar.fillRoundedRect(bx, by, bw * fillRatio, bh, 2);
+                }
+            }
         }
 
         // ── HUD 업데이트 ──
