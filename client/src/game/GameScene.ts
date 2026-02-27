@@ -268,9 +268,9 @@ export class GameScene extends Phaser.Scene {
             this.helpOverlay.setVisible(this.isHelpOpen);
         });
 
-        // ── Fullscreen Button (Top-Right, next to Help) ──
+        // ── Fullscreen Button (Top-Right, right of Help) ──
         const fsW = helpBtnSize * 4, fsH = helpBtnSize;
-        const fsX = helpBtnX - fsW - 8;
+        const fsX = helpBtnX + helpBtnSize + 8;
         const fsY = helpBtnY;
         this.btnFullscreen = this.add.graphics().setScrollFactor(0).setDepth(22);
         const drawFsBtn = (isOver: boolean) => {
@@ -317,7 +317,7 @@ export class GameScene extends Phaser.Scene {
             };
             draw();
             this.add.text(bx + bw / 2, by + bh / 2 + 1, label, {
-                fontFamily: "'Press Start 2P'", fontSize: '10px', color: '#ffffff'
+                fontFamily: "'Press Start 2P'", fontSize: '18px', color: '#ffffff'
             }).setOrigin(0.5).setScrollFactor(0).setDepth(23);
             const zone = this.add.zone(bx + bw / 2, by + bh / 2, bw, bh)
                 .setOrigin(0.5).setScrollFactor(0).setDepth(24)
