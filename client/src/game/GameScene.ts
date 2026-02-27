@@ -30,6 +30,9 @@ export class GameScene extends Phaser.Scene {
     currentTurn: TankId = "A";
     wind: number = 0;
 
+    /** 'single' = 1P vs AI, 'double' = 2P vs 2P */
+    gameMode: 'single' | 'double' = 'single';
+
     projectile: Projectile | null = null;
     projectileFirer: TankId = "A";
     private trailPoints: Array<{ x: number; y: number }> = [];
@@ -90,14 +93,42 @@ export class GameScene extends Phaser.Scene {
     private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
     private keySpace!: Phaser.Input.Keyboard.Key;
     private keyR!: Phaser.Input.Keyboard.Key;
+    // 1P move keys (Z, C instead of comma/period)
     private keyMoveLeft!: Phaser.Input.Keyboard.Key;
     private keyMoveRight!: Phaser.Input.Keyboard.Key;
+    // 1P aiming keys (W/S/A/D)
+    private key1W!: Phaser.Input.Keyboard.Key;
+    private key1S!: Phaser.Input.Keyboard.Key;
+    private key1A!: Phaser.Input.Keyboard.Key;
+    private key1D!: Phaser.Input.Keyboard.Key;
+    // 2P keys (numpad)
+    private key2Up!: Phaser.Input.Keyboard.Key;    // Numpad 8 - power up
+    private key2Down!: Phaser.Input.Keyboard.Key;  // Numpad 2 - power down
+    private key2Left!: Phaser.Input.Keyboard.Key;  // Numpad 4 - angle left
+    private key2Right!: Phaser.Input.Keyboard.Key; // Numpad 6 - angle right
+    private key2MoveLeft!: Phaser.Input.Keyboard.Key;  // Numpad 1
+    private key2MoveRight!: Phaser.Input.Keyboard.Key; // Numpad 3
+    private key2Fire!: Phaser.Input.Keyboard.Key;  // Numpad Enter
 
     private isMoveLeftDown: boolean = false;
     private isMoveRightDown: boolean = false;
     private moveBtnLeft!: Phaser.GameObjects.Container;
     private moveBtnRight!: Phaser.GameObjects.Container;
     private moveProgressBar!: Phaser.GameObjects.Graphics;
+
+    // 2P on-screen controls & move UI
+    private dpad2State = { up: false, down: false, left: false, right: false };
+    private isMoveLeftDown2: boolean = false;
+    private isMoveRightDown2: boolean = false;
+    private moveBtnLeft2!: Phaser.GameObjects.Container;
+    private moveBtnRight2!: Phaser.GameObjects.Container;
+    private moveProgressBar2!: Phaser.GameObjects.Graphics;
+
+    // Game-over mode buttons
+    private modeBtn1P!: Phaser.GameObjects.Graphics;
+    private modeTxt1P!: Phaser.GameObjects.Text;
+    private modeBtn2P!: Phaser.GameObjects.Graphics;
+    private modeTxt2P!: Phaser.GameObjects.Text;
 
     preload() {
         this.load.image("tankA", "assets/tankA.png");
@@ -159,59 +190,71 @@ export class GameScene extends Phaser.Scene {
         this.cursors = this.input.keyboard!.createCursorKeys();
         this.keySpace = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
         this.keyR = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.R);
-        this.keyMoveLeft = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.COMMA); // <
-        this.keyMoveRight = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.PERIOD); // >
+        // 1P move: Z (left), C (right)
+        this.keyMoveLeft = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.Z);
+        this.keyMoveRight = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.C);
+        // 1P aiming: W/S/A/D
+        this.key1W = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.W);
+        this.key1S = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.S);
+        this.key1A = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.A);
+        this.key1D = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.D);
+        // 2P numpad keys
+        this.key2Up = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.NUMPAD_EIGHT);
+        this.key2Down = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.NUMPAD_TWO);
+        this.key2Left = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.NUMPAD_FOUR);
+        this.key2Right = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.NUMPAD_SIX);
+        this.key2MoveLeft = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.NUMPAD_ONE);
+        this.key2MoveRight = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.NUMPAD_THREE);
+        this.key2Fire = this.input.keyboard!.addKey(13); // Enter / Numpad Enter
 
         this.createOnScreenControls(HX, HY + HH + 10);
 
         // ── Move UI ──
         this.moveProgressBar = this.add.graphics({ x: 0, y: 0 }).setDepth(30).setVisible(false);
+        this.moveProgressBar2 = this.add.graphics({ x: 0, y: 0 }).setDepth(30).setVisible(false);
 
-        const makeMoveBtn = (iconStr: string, isLeft: boolean) => {
+        const makeMoveBtn = (iconStr: string, onDown: () => void, onUp: () => void) => {
             const btnBg = this.add.graphics();
             const btnSize = 30;
-            btnBg.fillStyle(0x000000, 0.6);
-            btnBg.fillRoundedRect(-btnSize / 2, -btnSize / 2, btnSize, btnSize, 6);
-            btnBg.lineStyle(2, 0xaaaaaa, 0.8);
-            btnBg.strokeRoundedRect(-btnSize / 2, -btnSize / 2, btnSize, btnSize, 6);
-
-            const icon = this.add.text(0, 0, iconStr, {
-                fontFamily: 'Arial',
-                fontSize: '18px',
-                color: '#ffffff'
-            }).setOrigin(0.5);
-
-            const container = this.add.container(0, 0, [btnBg, icon]).setDepth(30).setVisible(false);
-
-            const btnZone = this.add.zone(0, 0, btnSize, btnSize).setInteractive({ useHandCursor: true });
-            container.add(btnZone);
-
-            btnZone.on('pointerdown', () => {
-                if (isLeft) this.isMoveLeftDown = true;
-                else this.isMoveRightDown = true;
-                btnBg.clear();
-                btnBg.fillStyle(0xffffff, 0.7);
-                btnBg.fillRoundedRect(-btnSize / 2, -btnSize / 2, btnSize, btnSize, 6);
-                btnBg.lineStyle(2, 0xaaaaaa, 0.8);
-                btnBg.strokeRoundedRect(-btnSize / 2, -btnSize / 2, btnSize, btnSize, 6);
-            });
-            const handleUp = () => {
-                if (isLeft) this.isMoveLeftDown = false;
-                else this.isMoveRightDown = false;
+            const drawUp = () => {
                 btnBg.clear();
                 btnBg.fillStyle(0x000000, 0.6);
                 btnBg.fillRoundedRect(-btnSize / 2, -btnSize / 2, btnSize, btnSize, 6);
                 btnBg.lineStyle(2, 0xaaaaaa, 0.8);
                 btnBg.strokeRoundedRect(-btnSize / 2, -btnSize / 2, btnSize, btnSize, 6);
             };
+            const drawDown = () => {
+                btnBg.clear();
+                btnBg.fillStyle(0xffffff, 0.7);
+                btnBg.fillRoundedRect(-btnSize / 2, -btnSize / 2, btnSize, btnSize, 6);
+                btnBg.lineStyle(2, 0xaaaaaa, 0.8);
+                btnBg.strokeRoundedRect(-btnSize / 2, -btnSize / 2, btnSize, btnSize, 6);
+            };
+            drawUp();
+
+            const icon = this.add.text(0, 0, iconStr, {
+                fontFamily: 'Arial', fontSize: '18px', color: '#ffffff'
+            }).setOrigin(0.5);
+
+            const container = this.add.container(0, 0, [btnBg, icon]).setDepth(30).setVisible(false);
+            const btnZone = this.add.zone(0, 0, btnSize, btnSize).setInteractive({ useHandCursor: true });
+            container.add(btnZone);
+
+            btnZone.on('pointerdown', () => { onDown(); drawDown(); });
+            const handleUp = () => { onUp(); drawUp(); };
             btnZone.on('pointerup', handleUp);
             btnZone.on('pointerout', handleUp);
 
             return container;
         };
 
-        this.moveBtnLeft = makeMoveBtn('◀', true);
-        this.moveBtnRight = makeMoveBtn('▶', false);
+        // 1P move buttons
+        this.moveBtnLeft = makeMoveBtn('◀', () => { this.isMoveLeftDown = true; }, () => { this.isMoveLeftDown = false; });
+        this.moveBtnRight = makeMoveBtn('▶', () => { this.isMoveRightDown = true; }, () => { this.isMoveRightDown = false; });
+        // 2P move buttons
+        this.moveBtnLeft2 = makeMoveBtn('◀', () => { this.isMoveLeftDown2 = true; }, () => { this.isMoveLeftDown2 = false; });
+        this.moveBtnRight2 = makeMoveBtn('▶', () => { this.isMoveRightDown2 = true; }, () => { this.isMoveRightDown2 = false; });
+
 
         this.sprTankA = this.add.image(0, 0, "tankA").setOrigin(0.5, 0.8).setDepth(2);
         this.sprTankB = this.add.image(0, 0, "tankB").setOrigin(0.5, 0.8).setDepth(2);
@@ -271,7 +314,7 @@ export class GameScene extends Phaser.Scene {
         // Restart On-screen Button
         const rw = 220, rh = 60;
         const rx = GAME_W * 0.5 - rw / 2;
-        const ry = GAME_H * 0.5 + 160;
+        const ry = GAME_H * 0.5 + 140;
 
         this.gameOverBtn = this.add.graphics().setScrollFactor(0).setDepth(50).setVisible(false);
         const drawRestartBtn = (state: 'up' | 'down' | 'over') => {
@@ -323,11 +366,7 @@ export class GameScene extends Phaser.Scene {
         restartZone.on('pointerover', () => {
             if (this.phase === "GAME_OVER") {
                 drawRestartBtn('over');
-                this.tweens.add({
-                    targets: [this.gameOverBtn, this.gameOverTxt],
-                    scale: 1.05,
-                    duration: 100
-                });
+                this.tweens.add({ targets: [this.gameOverBtn, this.gameOverTxt], scale: 1.05, duration: 100 });
             }
         });
 
@@ -335,14 +374,65 @@ export class GameScene extends Phaser.Scene {
             if (this.phase === "GAME_OVER") {
                 drawRestartBtn('up');
                 this.gameOverTxt.setScale(1);
-                this.tweens.add({
-                    targets: [this.gameOverBtn, this.gameOverTxt],
-                    scale: 1,
-                    duration: 100
-                });
+                this.tweens.add({ targets: [this.gameOverBtn, this.gameOverTxt], scale: 1, duration: 100 });
             }
         });
+
+        // ── Mode Select Buttons (below Restart) ──
+        const mw = 180, mh = 50, mGap = 20;
+        const mTotalW = mw * 2 + mGap;
+        const m1Px = GAME_W * 0.5 - mTotalW / 2;
+        const m2Px = m1Px + mw + mGap;
+        const mPy = ry + rh + 18;
+
+        const makeModeBtn = (
+            gfx: Phaser.GameObjects.Graphics,
+            txt: Phaser.GameObjects.Text,
+            bx: number, label: string, col: number,
+            onClick: () => void
+        ) => {
+            const drawNorm = () => {
+                gfx.clear();
+                gfx.fillStyle(col, 1.0);
+                gfx.fillRoundedRect(bx, mPy, mw, mh, 10);
+                gfx.lineStyle(2, 0xffffff, 0.8);
+                gfx.strokeRoundedRect(bx, mPy, mw, mh, 10);
+            };
+            drawNorm();
+            const zone = this.add.zone(bx + mw / 2, mPy + mh / 2, mw, mh)
+                .setOrigin(0.5).setScrollFactor(0).setDepth(52).setInteractive({ useHandCursor: true });
+            zone.on('pointerup', () => { if (this.phase === "GAME_OVER") onClick(); });
+            zone.on('pointerover', () => {
+                if (this.phase !== "GAME_OVER") return;
+                gfx.clear(); gfx.fillStyle(col + 0x222222, 1.0);
+                gfx.fillRoundedRect(bx, mPy, mw, mh, 10);
+                gfx.lineStyle(2, 0xffffff, 1.0);
+                gfx.strokeRoundedRect(bx, mPy, mw, mh, 10);
+                txt.setScale(1.05);
+            });
+            zone.on('pointerout', () => { drawNorm(); txt.setScale(1); });
+        };
+
+        this.modeBtn1P = this.add.graphics().setScrollFactor(0).setDepth(50).setVisible(false);
+        this.modeTxt1P = this.add.text(m1Px + mw / 2, mPy + mh / 2, "1 PLAYER", {
+            fontFamily: "'Press Start 2P'", fontSize: "11px", color: "#ffffff"
+        }).setOrigin(0.5).setScrollFactor(0).setDepth(51).setVisible(false);
+
+        this.modeBtn2P = this.add.graphics().setScrollFactor(0).setDepth(50).setVisible(false);
+        this.modeTxt2P = this.add.text(m2Px + mw / 2, mPy + mh / 2, "2 PLAYERS", {
+            fontFamily: "'Press Start 2P'", fontSize: "11px", color: "#ffffff"
+        }).setOrigin(0.5).setScrollFactor(0).setDepth(51).setVisible(false);
+
+        makeModeBtn(this.modeBtn1P, this.modeTxt1P, m1Px, "1 PLAYER", 0x226699, () => {
+            this.gameMode = 'single';
+            this.handleRestart();
+        });
+        makeModeBtn(this.modeBtn2P, this.modeTxt2P, m2Px, "2 PLAYERS", 0x228844, () => {
+            this.gameMode = 'double';
+            this.handleRestart();
+        });
     }
+
 
     private handleRestart() {
         this.tweens.killTweensOf(this.gameOverTitle);
@@ -353,6 +443,10 @@ export class GameScene extends Phaser.Scene {
         this.gameOverHint.setVisible(false);
         this.gameOverBtn.setVisible(false);
         this.gameOverTxt.setVisible(false);
+        this.modeBtn1P.setVisible(false);
+        this.modeTxt1P.setVisible(false);
+        this.modeBtn2P.setVisible(false);
+        this.modeTxt2P.setVisible(false);
         this.resetMatch();
     }
 
@@ -493,8 +587,12 @@ export class GameScene extends Phaser.Scene {
 
         fireZone.on('pointerdown', () => {
             drawFireState(true);
-            if (this.phase === "AIMING" && this.currentTurn === "A" && !this.aiActing) {
-                this.fire(this.tanks.A);
+            if (this.phase === "AIMING" && !this.aiActing) {
+                if (this.currentTurn === "A") {
+                    this.fire(this.tanks.A);
+                } else if (this.gameMode === 'double') {
+                    this.fire(this.tanks.B);
+                }
             }
         });
         fireZone.on('pointerup', () => drawFireState(false));
@@ -516,63 +614,88 @@ export class GameScene extends Phaser.Scene {
         // input only during aiming
         if (this.phase === "AIMING") {
             const t = this.tanks[this.currentTurn];
+            const moveSpeed = 40; // px/s
+            const moveDt = moveSpeed * (deltaMs / 1000);
 
             if (this.currentTurn === "A") {
-                const angleDir = 1;
+                // ── Player 1 controls ──
+                // Arrow keys OR W/S/A/D for angle/power
+                const leftDown = this.cursors.left.isDown || this.dpadState.left || this.key1A.isDown;
+                const rightDown = this.cursors.right.isDown || this.dpadState.right || this.key1D.isDown;
+                const upDown = this.cursors.up.isDown || this.dpadState.up || this.key1W.isDown;
+                const downDown = this.cursors.down.isDown || this.dpadState.down || this.key1S.isDown;
 
-                // 키보드 & D-Pad 입력 처리
-                const leftDown = this.cursors.left.isDown || this.dpadState.left;
-                const rightDown = this.cursors.right.isDown || this.dpadState.right;
-                const upDown = this.cursors.up.isDown || this.dpadState.up;
-                const downDown = this.cursors.down.isDown || this.dpadState.down;
-
-                if (leftDown) t.angleDeg = clamp(t.angleDeg + 0.8 * angleDir, 0, 180);
-                if (rightDown) t.angleDeg = clamp(t.angleDeg - 0.8 * angleDir, 0, 180);
+                if (leftDown) t.angleDeg = clamp(t.angleDeg + 0.8, 0, 180);
+                if (rightDown) t.angleDeg = clamp(t.angleDeg - 0.8, 0, 180);
                 if (upDown) t.power = clamp(t.power + 0.7, 0, 100);
                 if (downDown) t.power = clamp(t.power - 0.7, 0, 100);
 
-                // 탱크 이동 처리
-                const moveSpeed = 40; // px/s
-                const moveDt = moveSpeed * (deltaMs / 1000);
-                let isMoving = false;
-
+                // Z / C for move
                 if (t.moveRemaining > 0) {
                     const doMoveLeft = this.keyMoveLeft.isDown || this.isMoveLeftDown;
                     const doMoveRight = this.keyMoveRight.isDown || this.isMoveRightDown;
-
                     if (doMoveLeft && !doMoveRight) {
-                        const actualMove = Math.min(moveDt, t.moveRemaining);
-                        t.x -= actualMove;
-                        t.moveRemaining -= actualMove;
-                        isMoving = true;
+                        const d = Math.min(moveDt, t.moveRemaining);
+                        t.x -= d; t.moveRemaining -= d;
+                        t.x = clamp(t.x, 20, WORLD_W - 20);
+                        t.y = this.terrain.heightAt(t.x) - 18;
+                        this.updateTankAngles();
                     } else if (doMoveRight && !doMoveLeft) {
-                        const actualMove = Math.min(moveDt, t.moveRemaining);
-                        t.x += actualMove;
-                        t.moveRemaining -= actualMove;
-                        isMoving = true;
-                    }
-
-                    if (isMoving) {
-                        t.x = clamp(t.x, 20, WORLD_W - 20); // 화면 안 벗어나게
-                        t.y = this.terrain.heightAt(t.x) - 18; // 지형 높이에 맞춤
-                        this.updateTankAngles(); // 각도 재조정
+                        const d = Math.min(moveDt, t.moveRemaining);
+                        t.x += d; t.moveRemaining -= d;
+                        t.x = clamp(t.x, 20, WORLD_W - 20);
+                        t.y = this.terrain.heightAt(t.x) - 18;
+                        this.updateTankAngles();
                     }
                 }
 
-                if (Phaser.Input.Keyboard.JustDown(this.keySpace)) {
-                    this.fire(t);
-                }
+                if (Phaser.Input.Keyboard.JustDown(this.keySpace)) this.fire(t);
+
             } else {
-                // AI Turn (Player B)
-                if (!this.aiActing) {
-                    this.aiActing = true;
-                    // ~1.5초 대기 후 AI 액션 실행 (생각하는 척)
-                    this.time.delayedCall(1500, () => {
-                        this.executeAITurn(t);
-                    });
+                // ── Player B turn ──
+                if (this.gameMode === 'double') {
+                    // 2P human controls (numpad)
+                    const upDown2 = this.key2Up.isDown || this.dpad2State.up;
+                    const downDown2 = this.key2Down.isDown || this.dpad2State.down;
+                    const leftDown2 = this.key2Left.isDown || this.dpad2State.left;
+                    const rightDown2 = this.key2Right.isDown || this.dpad2State.right;
+
+                    // Tank B faces left, so angle direction is mirrored
+                    if (leftDown2) t.angleDeg = clamp(t.angleDeg + 0.8, 0, 180);
+                    if (rightDown2) t.angleDeg = clamp(t.angleDeg - 0.8, 0, 180);
+                    if (upDown2) t.power = clamp(t.power + 0.7, 0, 100);
+                    if (downDown2) t.power = clamp(t.power - 0.7, 0, 100);
+
+                    // Numpad 1 / 3 for move
+                    if (t.moveRemaining > 0) {
+                        const doLeft2 = this.key2MoveLeft.isDown || this.isMoveLeftDown2;
+                        const doRight2 = this.key2MoveRight.isDown || this.isMoveRightDown2;
+                        if (doLeft2 && !doRight2) {
+                            const d = Math.min(moveDt, t.moveRemaining);
+                            t.x -= d; t.moveRemaining -= d;
+                            t.x = clamp(t.x, 20, WORLD_W - 20);
+                            t.y = this.terrain.heightAt(t.x) - 18;
+                            this.updateTankAngles();
+                        } else if (doRight2 && !doLeft2) {
+                            const d = Math.min(moveDt, t.moveRemaining);
+                            t.x += d; t.moveRemaining -= d;
+                            t.x = clamp(t.x, 20, WORLD_W - 20);
+                            t.y = this.terrain.heightAt(t.x) - 18;
+                            this.updateTankAngles();
+                        }
+                    }
+
+                    if (Phaser.Input.Keyboard.JustDown(this.key2Fire)) this.fire(t);
+                } else {
+                    // AI Turn (Single Player)
+                    if (!this.aiActing) {
+                        this.aiActing = true;
+                        this.time.delayedCall(1500, () => { this.executeAITurn(t); });
+                    }
                 }
             }
         }
+
 
         // fixed-step sim
         this.accumulator += deltaMs / 1000;
@@ -1153,12 +1276,16 @@ export class GameScene extends Phaser.Scene {
                 });
             });
 
-            // ── 등장 애니메이션 (4): Restart 버튼 - 1.0초 후 아래에서 팝업 ──
+            // ── 등장 애니메이션 (4): Restart + Mode 버튼 - 1.0초 후 팝업 ──
             this.gameOverBtn.setVisible(true).setAlpha(0).setScale(0.5);
             this.gameOverTxt.setVisible(true).setAlpha(0).setScale(0.5);
+            this.modeBtn1P.setVisible(true).setAlpha(0).setScale(0.5);
+            this.modeTxt1P.setVisible(true).setAlpha(0).setScale(0.5);
+            this.modeBtn2P.setVisible(true).setAlpha(0).setScale(0.5);
+            this.modeTxt2P.setVisible(true).setAlpha(0).setScale(0.5);
             this.time.delayedCall(1000, () => {
                 this.tweens.add({
-                    targets: [this.gameOverBtn, this.gameOverTxt],
+                    targets: [this.gameOverBtn, this.gameOverTxt, this.modeBtn1P, this.modeTxt1P, this.modeBtn2P, this.modeTxt2P],
                     alpha: 1,
                     scale: 1,
                     duration: 400,
@@ -1741,37 +1868,53 @@ export class GameScene extends Phaser.Scene {
         this.moveBtnLeft.setVisible(false);
         this.moveBtnRight.setVisible(false);
         this.moveProgressBar.setVisible(false);
+        this.moveBtnLeft2.setVisible(false);
+        this.moveBtnRight2.setVisible(false);
+        this.moveProgressBar2.setVisible(false);
 
-        if (this.phase === "AIMING" && this.currentTurn === "A" && this.tanks.A.moveRemaining > 0) {
-            const ta = this.tanks.A;
-            // 버튼 위치 (간격 넓힘)
-            this.moveBtnLeft.setPosition(ta.x - 55, ta.y - 12);
-            this.moveBtnRight.setPosition(ta.x + 55, ta.y - 12);
-            this.moveBtnLeft.setVisible(true);
-            this.moveBtnRight.setVisible(true);
+        const drawMoveUI = (
+            tank: Tank,
+            btnL: Phaser.GameObjects.Container,
+            btnR: Phaser.GameObjects.Container,
+            bar: Phaser.GameObjects.Graphics,
+            movingL: boolean, movingR: boolean
+        ) => {
+            if (tank.moveRemaining <= 0) return;
+            btnL.setPosition(tank.x - 55, tank.y - 12);
+            btnR.setPosition(tank.x + 55, tank.y - 12);
+            btnL.setVisible(true);
+            btnR.setVisible(true);
 
-            // 게이지바 (이동 중이거나 버튼을 누르고 있을 때만)
-            if (this.keyMoveLeft.isDown || this.isMoveLeftDown || this.keyMoveRight.isDown || this.isMoveRightDown) {
-                this.moveProgressBar.setVisible(true);
-                this.moveProgressBar.clear();
-                const bw = 40;
-                const bh = 6;
-                const bx = ta.x - bw / 2;
-                const by = ta.y - 45;
-
-                // 배경
-                this.moveProgressBar.fillStyle(0x000000, 0.6);
-                this.moveProgressBar.fillRoundedRect(bx - 2, by - 2, bw + 4, bh + 4, 3);
-                // 빈 바
-                this.moveProgressBar.fillStyle(0x333333, 0.8);
-                this.moveProgressBar.fillRoundedRect(bx, by, bw, bh, 2);
-                // 채움 바 (초록색)
-                const fillRatio = Math.max(0, ta.moveRemaining / ta.maxMove);
-                this.moveProgressBar.fillStyle(0x55ff55, 0.9);
-                if (fillRatio > 0) {
-                    this.moveProgressBar.fillRoundedRect(bx, by, bw * fillRatio, bh, 2);
-                }
+            if (movingL || movingR) {
+                bar.setVisible(true);
+                bar.clear();
+                const bw = 40, bh = 6;
+                const bx = tank.x - bw / 2;
+                const by = tank.y - 45;
+                bar.fillStyle(0x000000, 0.6);
+                bar.fillRoundedRect(bx - 2, by - 2, bw + 4, bh + 4, 3);
+                bar.fillStyle(0x333333, 0.8);
+                bar.fillRoundedRect(bx, by, bw, bh, 2);
+                const fillRatio = Math.max(0, tank.moveRemaining / tank.maxMove);
+                bar.fillStyle(0x55ff55, 0.9);
+                if (fillRatio > 0) bar.fillRoundedRect(bx, by, bw * fillRatio, bh, 2);
             }
+        };
+
+        if (this.phase === "AIMING" && this.currentTurn === "A") {
+            const ta = this.tanks.A;
+            drawMoveUI(
+                ta, this.moveBtnLeft, this.moveBtnRight, this.moveProgressBar,
+                this.keyMoveLeft.isDown || this.isMoveLeftDown,
+                this.keyMoveRight.isDown || this.isMoveRightDown
+            );
+        } else if (this.phase === "AIMING" && this.currentTurn === "B" && this.gameMode === 'double') {
+            const tb = this.tanks.B;
+            drawMoveUI(
+                tb, this.moveBtnLeft2, this.moveBtnRight2, this.moveProgressBar2,
+                this.key2MoveLeft.isDown || this.isMoveLeftDown2,
+                this.key2MoveRight.isDown || this.isMoveRightDown2
+            );
         }
 
         // ── HUD 업데이트 ──
