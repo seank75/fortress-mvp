@@ -143,9 +143,18 @@ export class GameScene extends Phaser.Scene {
         this.hudHpA = this.add.text(HX + 10, HY + 35, '', { ...hsSmall, color: '#FF6688' }).setScrollFactor(0).setDepth(21);
         this.hudHpB = this.add.text(HX + 190, HY + 35, '', { ...hsSmall, color: '#55BBFF' }).setScrollFactor(0).setDepth(21);
 
-        this.hudWind = this.add.text(HX + 10, HY + 65, '', { ...hs, color: '#77DDFF' }).setScrollFactor(0).setDepth(21);
-        this.hudAngle = this.add.text(HX + 140, HY + 65, '', { ...hs, color: '#88FFAA' }).setScrollFactor(0).setDepth(21);
-        this.hudPower = this.add.text(HX + 250, HY + 65, '', { ...hs, color: '#FFAA44' }).setScrollFactor(0).setDepth(21);
+        const hsEmph = {
+            fontFamily: "'Press Start 2P'",
+            fontSize: '16px',
+            lineSpacing: 2,
+            stroke: '#000000',
+            strokeThickness: 4,
+            shadow: { offsetX: 2, offsetY: 2, color: '#222222', blur: 0, fill: true }
+        };
+
+        this.hudWind = this.add.text(HX + 10, HY + 65, '', { ...hsEmph, color: '#77DDFF' }).setScrollFactor(0).setDepth(21);
+        this.hudAngle = this.add.text(HX + 160, HY + 65, '', { ...hsEmph, color: '#88FFAA' }).setScrollFactor(0).setDepth(21);
+        this.hudPower = this.add.text(HX + 280, HY + 65, '', { ...hsEmph, color: '#FFAA44' }).setScrollFactor(0).setDepth(21);
 
         this.cursors = this.input.keyboard!.createCursorKeys();
         this.keySpace = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
@@ -1735,9 +1744,9 @@ export class GameScene extends Phaser.Scene {
 
         if (this.phase === "AIMING" && this.currentTurn === "A" && this.tanks.A.moveRemaining > 0) {
             const ta = this.tanks.A;
-            // 버튼 위치
-            this.moveBtnLeft.setPosition(ta.x - 35, ta.y - 12);
-            this.moveBtnRight.setPosition(ta.x + 35, ta.y - 12);
+            // 버튼 위치 (간격 넓힘)
+            this.moveBtnLeft.setPosition(ta.x - 55, ta.y - 12);
+            this.moveBtnRight.setPosition(ta.x + 55, ta.y - 12);
             this.moveBtnLeft.setVisible(true);
             this.moveBtnRight.setVisible(true);
 
@@ -1826,11 +1835,11 @@ export class GameScene extends Phaser.Scene {
         this.hudHpB.setText(`B ♥ ${this.tanks.B.hp}`);
 
         // 바람
-        const windDir = this.wind >= 0 ? '→' : '←';
-        this.hudWind.setText(`≈ ${windDir}${Math.abs(this.wind).toFixed(0)}`);
+        const windDir = this.wind >= 0 ? '▶' : '◀';
+        this.hudWind.setText(`≈${windDir}${Math.abs(this.wind).toFixed(0)}`);
 
         // 각도 / 파워
-        this.hudAngle.setText(`∠ ${t.angleDeg.toFixed(0)}°`);
-        this.hudPower.setText(`⚡ ${t.power.toFixed(0)}%`);
+        this.hudAngle.setText(`∠${t.angleDeg.toFixed(0)}°`);
+        this.hudPower.setText(`⚡${t.power.toFixed(0)}%`);
     }
 }
