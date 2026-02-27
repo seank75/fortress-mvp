@@ -202,14 +202,15 @@ export class GameScene extends Phaser.Scene {
         this.key1S = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.S);
         this.key1A = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.A);
         this.key1D = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.D);
-        // 2P numpad keys
-        this.key2Up = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.NUMPAD_EIGHT);
-        this.key2Down = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.NUMPAD_TWO);
-        this.key2Left = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.NUMPAD_FOUR);
-        this.key2Right = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.NUMPAD_SIX);
-        this.key2MoveLeft = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.NUMPAD_ONE);
-        this.key2MoveRight = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.NUMPAD_THREE);
-        this.key2Fire = this.input.keyboard!.addKey(13); // Enter / Numpad Enter
+        // 2P numpad keys (raw keyCodes: Numpad1=97, Num2=98, Num3=99, Num4=100, Num6=102, Num8=104)
+        this.key2Up = this.input.keyboard!.addKey(104); // Numpad 8 - power up
+        this.key2Down = this.input.keyboard!.addKey(98);  // Numpad 2 - power down
+        this.key2Left = this.input.keyboard!.addKey(100); // Numpad 4 - angle left
+        this.key2Right = this.input.keyboard!.addKey(102); // Numpad 6 - angle right
+        this.key2MoveLeft = this.input.keyboard!.addKey(97);  // Numpad 1 - move left
+        this.key2MoveRight = this.input.keyboard!.addKey(99);  // Numpad 3 - move right
+        this.key2Fire = this.input.keyboard!.addKey(13);  // Enter / Numpad Enter
+
         // ── Help + Mode Buttons (HUD 우측) ──
         const helpBtnSize = 30;
         const helpBtnX = HX + HW + 8;
