@@ -327,6 +327,36 @@ export class GameScene extends Phaser.Scene {
 
         this.createOnScreenControls(HX, HY + HH + 10);
 
+        // ── Fullscreen Button (Bottom-Left, Semi-transparent) ──
+        const fsW = 100, fsH = 40;
+        const fsX = 20, fsY = GAME_H - fsH - 20;
+        this.btnFullscreen = this.add.graphics().setScrollFactor(0).setDepth(100).setAlpha(0.4);
+        const drawFsBtn = (isOver: boolean) => {
+            this.btnFullscreen.clear();
+            this.btnFullscreen.fillStyle(isOver ? 0x5599ff : 0x224477, 0.8);
+            this.btnFullscreen.fillRoundedRect(fsX, fsY, fsW, fsH, 8);
+            this.btnFullscreen.lineStyle(2, 0xffffff, 0.9);
+            this.btnFullscreen.strokeRoundedRect(fsX, fsY, fsW, fsH, 8);
+        };
+        drawFsBtn(false);
+
+        this.txtFullscreen = this.add.text(fsX + fsW / 2, fsY + fsH / 2, "FULLSCREEN", {
+            fontFamily: "'Press Start 2P'", fontSize: '8px', color: '#ffffff'
+        }).setOrigin(0.5).setScrollFactor(0).setDepth(101).setAlpha(0.6);
+
+        this.fullscreenZone = this.add.zone(fsX + fsW / 2, fsY + fsH / 2, fsW, fsH)
+            .setOrigin(0.5).setScrollFactor(0).setDepth(102).setInteractive({ useHandCursor: true });
+
+        this.fullscreenZone.on('pointerover', () => drawFsBtn(true));
+        this.fullscreenZone.on('pointerout', () => drawFsBtn(false));
+        this.fullscreenZone.on('pointerup', () => {
+            if (this.scale.isFullscreen) {
+                this.scale.stopFullscreen();
+            } else {
+                this.scale.startFullscreen();
+            }
+        });
+
 
         // ── Move UI ──
         this.moveProgressBar = this.add.graphics({ x: 0, y: 0 }).setDepth(30).setVisible(false);
@@ -551,6 +581,11 @@ export class GameScene extends Phaser.Scene {
             this.handleRestart();
         });
     }
+
+    // Fullscreen button
+    private btnFullscreen!: Phaser.GameObjects.Graphics;
+    private txtFullscreen!: Phaser.GameObjects.Text;
+    private fullscreenZone!: Phaser.GameObjects.Zone;
 
     private createHelpOverlay() {
         const W = 760, H = 540;
