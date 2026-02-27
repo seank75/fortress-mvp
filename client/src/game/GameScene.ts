@@ -210,7 +210,7 @@ export class GameScene extends Phaser.Scene {
         this.key2MoveLeft = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.NUMPAD_ONE);
         this.key2MoveRight = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.NUMPAD_THREE);
         this.key2Fire = this.input.keyboard!.addKey(13); // Enter / Numpad Enter
-        // ── Help Button (HUD 우측 작은 ? 버튼) ──
+        // ── Help + Mode Buttons (HUD 우측) ──
         const helpBtnSize = 30;
         const helpBtnX = HX + HW + 8;
         const helpBtnY = HY;
@@ -236,6 +236,65 @@ export class GameScene extends Phaser.Scene {
         helpZone.on('pointerup', () => {
             this.isHelpOpen = !this.isHelpOpen;
             this.helpOverlay.setVisible(this.isHelpOpen);
+        });
+
+        // [1P] / [2P] 인라인 모드 토글 버튼
+        const mbW = helpBtnSize, mbH = 26, mbGap = 4;
+        const mb1Y = helpBtnY + helpBtnSize + mbGap;
+        const mb2Y = mb1Y + mbH + mbGap;
+
+        const makeInlineModeBtn = (
+            bx: number, by: number, bw: number, bh: number,
+            label: string, activeCol: number, inactiveCol: number,
+            getActive: () => boolean
+        ) => {
+            const gfx = this.add.graphics().setScrollFactor(0).setDepth(22);
+            const draw = () => {
+                const active = getActive();
+                gfx.clear();
+                gfx.fillStyle(active ? activeCol : inactiveCol, active ? 1.0 : 0.5);
+                gfx.fillRoundedRect(bx, by, bw, bh, 5);
+                gfx.lineStyle(2, 0xffffff, active ? 0.9 : 0.4);
+                gfx.strokeRoundedRect(bx, by, bw, bh, 5);
+            };
+            draw();
+            this.add.text(bx + bw / 2, by + bh / 2, label, {
+                fontFamily: "'Press Start 2P'", fontSize: '9px', color: '#ffffff'
+            }).setOrigin(0.5).setScrollFactor(0).setDepth(23);
+            const zone = this.add.zone(bx + bw / 2, by + bh / 2, bw, bh)
+                .setOrigin(0.5).setScrollFactor(0).setDepth(24)
+                .setInteractive({ useHandCursor: true });
+            zone.on('pointerup', () => { draw(); });
+            return { gfx, draw, zone };
+        };
+
+        const btn1p = makeInlineModeBtn(
+            helpBtnX, mb1Y, mbW, mbH, '1P', 0x226699, 0x112233,
+            () => this.gameMode === 'single'
+        );
+        const btn2p = makeInlineModeBtn(
+            helpBtnX, mb2Y, mbW, mbH, '2P', 0x228844, 0x113322,
+            () => this.gameMode === 'double'
+        );
+
+        btn1p.zone.on('pointerup', () => {
+            if (this.gameMode !== 'single') {
+                this.gameMode = 'single';
+                // B 턴이고 AI가 아직 안 했다면 즉시 AI 실행
+                if (this.phase === 'AIMING' && this.currentTurn === 'B' && !this.aiActing) {
+                    this.aiActing = true;
+                    this.time.delayedCall(600, () => { this.executeAITurn(this.tanks.B); });
+                }
+            }
+            btn1p.draw(); btn2p.draw();
+        });
+        btn2p.zone.on('pointerup', () => {
+            if (this.gameMode !== 'double') {
+                this.gameMode = 'double';
+                // AI 대기 취소 (aiActing을 false로 해서 B 플레이어가 직접 조작)
+                this.aiActing = false;
+            }
+            btn1p.draw(); btn2p.draw();
         });
 
         this.createHelpOverlay();
@@ -468,32 +527,29 @@ export class GameScene extends Phaser.Scene {
     }
 
     private createHelpOverlay() {
-        const W = 480, H = 320;
-        const OX = 10, OY = 110; // HUD 아래에서 시작
+        const W = 760, H = 540;
+        const OX = 10, OY = 110;
 
         const items: Phaser.GameObjects.GameObject[] = [];
 
-        // 배경 패널
         const bg = this.add.graphics();
-        bg.fillStyle(0x000d1a, 0.88);
-        bg.fillRoundedRect(OX, OY, W, H, 12);
+        bg.fillStyle(0x000d1a, 0.92);
+        bg.fillRoundedRect(OX, OY, W, H, 14);
         bg.lineStyle(2, 0x3a7fc1, 1.0);
-        bg.strokeRoundedRect(OX, OY, W, H, 12);
+        bg.strokeRoundedRect(OX, OY, W, H, 14);
         items.push(bg);
 
-        const px = OX + 16, py = OY + 14;
-        const fs = { fontFamily: "'Press Start 2P'", fontSize: '9px', color: '#ffffff' };
-        const fsHdr = { fontFamily: "'Press Start 2P'", fontSize: '10px', color: '#FFD700' };
-        const fsKey = { fontFamily: "'Press Start 2P'", fontSize: '8px', color: '#88ddff' };
-        const fsVal = { fontFamily: "'Press Start 2P'", fontSize: '8px', color: '#cccccc' };
+        const px = OX + 24, py = OY + 20;
+        const fs = { fontFamily: "'Press Start 2P'", fontSize: '27px', color: '#ffffff' };
+        const fsHdr = { fontFamily: "'Press Start 2P'", fontSize: '30px', color: '#FFD700' };
+        const fsKey = { fontFamily: "'Press Start 2P'", fontSize: '24px', color: '#88ddff' };
+        const fsVal = { fontFamily: "'Press Start 2P'", fontSize: '24px', color: '#cccccc' };
 
-        // 제목
         items.push(this.add.text(px, py, '[ KEYBOARD CONTROLS ]', fsHdr));
 
-        // 1P 컬럼 헤더
-        const col1x = px, col2x = px + 240;
-        const rowH = 22;
-        let row = py + 26;
+        const col1x = px, col2x = px + 380;
+        const rowH = 58;
+        let row = py + 66;
 
         items.push(this.add.text(col1x, row, '=== 1 PLAYER ===', { ...fs, color: '#ff8866' }));
         items.push(this.add.text(col2x, row, '=== 2 PLAYER ===', { ...fs, color: '#66ddff' }));
@@ -504,14 +560,11 @@ export class GameScene extends Phaser.Scene {
             ['W / S', '발사 파워'],
             ['Z / C', '탱크 이동'],
             ['SPACE', '발사'],
-            ['  -  ', '  -  '],
-            ['◀ ▶', '포탑 각도'],
-            ['▲ ▼', '발사 파워'],
         ];
         const table2 = [
-            ['Num 4 / 6', '포탑 각도'],
-            ['Num 8 / 2', '발사 파워'],
-            ['Num 1 / 3', '탱크 이동'],
+            ['4 / 6', '포탑 각도'],
+            ['8 / 2', '발사 파워'],
+            ['1 / 3', '탱크 이동'],
             ['Enter', '발사'],
         ];
 
@@ -521,25 +574,21 @@ export class GameScene extends Phaser.Scene {
             const r2 = table2[i];
             if (r1) {
                 items.push(this.add.text(col1x, row, r1[0], fsKey));
-                items.push(this.add.text(col1x + 80, row, r1[1], fsVal));
+                items.push(this.add.text(col1x + 160, row, r1[1], fsVal));
             }
             if (r2) {
                 items.push(this.add.text(col2x, row, r2[0], fsKey));
-                items.push(this.add.text(col2x + 90, row, r2[1], fsVal));
+                items.push(this.add.text(col2x + 130, row, r2[1], fsVal));
             }
             row += rowH;
         }
 
-        // 닫기 힌트
-        items.push(this.add.text(OX + W / 2, OY + H - 18, '[ ? ] 버튼을 다시 눌러 닫기', {
-            fontFamily: "'Press Start 2P'", fontSize: '8px', color: '#888888'
+        items.push(this.add.text(OX + W / 2, OY + H - 22, '[ ? ] 버튼을 눌러 닫기', {
+            fontFamily: "'Press Start 2P'", fontSize: '20px', color: '#666888'
         }).setOrigin(0.5));
 
-        // 모든 아이템을 컨테이너로 묶고 스크롤 고정
         this.helpOverlay = this.add.container(0, 0, items)
-            .setScrollFactor(0)
-            .setDepth(40)
-            .setVisible(false);
+            .setScrollFactor(0).setDepth(40).setVisible(false);
     }
 
     private handleRestart() {
