@@ -207,9 +207,9 @@ export class GameScene extends Phaser.Scene {
         this.cursors = this.input.keyboard!.createCursorKeys();
         this.keySpace = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
         this.keyR = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.R);
-        // 1P move: Z (left), C (right)
-        this.keyMoveLeft = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.Z);
-        this.keyMoveRight = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.C);
+        // 1P move: Q (left), E (right)
+        this.keyMoveLeft = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.Q);
+        this.keyMoveRight = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.E);
         // 1P aiming: W/S/A/D
         this.key1W = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.W);
         this.key1S = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.S);
@@ -618,7 +618,7 @@ export class GameScene extends Phaser.Scene {
         const table1 = [
             ['A / D', '포탑 각도'],
             ['W / S', '발사 파워'],
-            ['Z / C', '탱크 이동'],
+            ['Q / E', '탱크 이동'],
             ['SPACE', '발사'],
         ];
         const table2 = [
