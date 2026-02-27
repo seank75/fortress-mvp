@@ -69,6 +69,8 @@ export class GameScene extends Phaser.Scene {
     private dpadState = { up: false, down: false, left: false, right: false };
     private btnFire!: Phaser.GameObjects.Graphics;
     private txtFire!: Phaser.GameObjects.Text;
+    private fireZone!: Phaser.GameObjects.Zone;
+
     private gameOverBtn!: Phaser.GameObjects.Graphics;
     private gameOverTxt!: Phaser.GameObjects.Text;
 
@@ -252,7 +254,7 @@ export class GameScene extends Phaser.Scene {
         };
         drawHelp(false);
         this.add.text(helpBtnX + helpBtnSize / 2, helpBtnY + helpBtnSize / 2, '?', {
-            fontFamily: "'Press Start 2P'", fontSize: '14px', color: '#ffffff'
+            fontFamily: "'Press Start 2P'", fontSize: '22px', color: '#ffffff'
         }).setOrigin(0.5).setScrollFactor(0).setDepth(23);
 
         const helpZone = this.add.zone(
@@ -264,6 +266,34 @@ export class GameScene extends Phaser.Scene {
         helpZone.on('pointerup', () => {
             this.isHelpOpen = !this.isHelpOpen;
             this.helpOverlay.setVisible(this.isHelpOpen);
+        });
+
+        // ── Fullscreen Button (Top-Right, next to Help) ──
+        const fsW = helpBtnSize * 4, fsH = helpBtnSize;
+        const fsX = helpBtnX - fsW - 8;
+        const fsY = helpBtnY;
+        this.btnFullscreen = this.add.graphics().setScrollFactor(0).setDepth(22);
+        const drawFsBtn = (isOver: boolean) => {
+            this.btnFullscreen.clear();
+            this.btnFullscreen.fillStyle(isOver ? 0x5599ff : 0x224477, 0.9);
+            this.btnFullscreen.fillRoundedRect(fsX, fsY, fsW, fsH, 6);
+            this.btnFullscreen.lineStyle(2, 0x88bbff, 0.9);
+            this.btnFullscreen.strokeRoundedRect(fsX, fsY, fsW, fsH, 6);
+        };
+        drawFsBtn(false);
+
+        this.txtFullscreen = this.add.text(fsX + fsW / 2, fsY + fsH / 2, "FULLSCREEN", {
+            fontFamily: "'Press Start 2P'", fontSize: '14px', color: '#ffffff'
+        }).setOrigin(0.5).setScrollFactor(0).setDepth(23);
+
+        this.fullscreenZone = this.add.zone(fsX + fsW / 2, fsY + fsH / 2, fsW, fsH)
+            .setOrigin(0.5).setScrollFactor(0).setDepth(24).setInteractive({ useHandCursor: true });
+
+        this.fullscreenZone.on('pointerover', () => drawFsBtn(true));
+        this.fullscreenZone.on('pointerout', () => drawFsBtn(false));
+        this.fullscreenZone.on('pointerup', () => {
+            if (this.scale.isFullscreen) this.scale.stopFullscreen();
+            else this.scale.startFullscreen();
         });
 
         // [1P] / [2P] 인라인 모드 토글 버튼
@@ -287,7 +317,7 @@ export class GameScene extends Phaser.Scene {
             };
             draw();
             this.add.text(bx + bw / 2, by + bh / 2 + 1, label, {
-                fontFamily: "'Press Start 2P'", fontSize: '16px', color: '#ffffff'
+                fontFamily: "'Press Start 2P'", fontSize: '10px', color: '#ffffff'
             }).setOrigin(0.5).setScrollFactor(0).setDepth(23);
             const zone = this.add.zone(bx + bw / 2, by + bh / 2, bw, bh)
                 .setOrigin(0.5).setScrollFactor(0).setDepth(24)
@@ -308,7 +338,6 @@ export class GameScene extends Phaser.Scene {
         btn1p.zone.on('pointerup', () => {
             if (this.gameMode !== 'single') {
                 this.gameMode = 'single';
-                // B 턴이고 AI가 아직 안 했다면 즉시 AI 실행
                 if (this.phase === 'AIMING' && this.currentTurn === 'B' && !this.aiActing) {
                     this.aiActing = true;
                     this.time.delayedCall(600, () => { this.executeAITurn(this.tanks.B); });
@@ -319,45 +348,13 @@ export class GameScene extends Phaser.Scene {
         btn2p.zone.on('pointerup', () => {
             if (this.gameMode !== 'double') {
                 this.gameMode = 'double';
-                // AI 대기 취소 (aiActing을 false로 해서 B 플레이어가 직접 조작)
                 this.aiActing = false;
             }
             btn1p.draw(); btn2p.draw();
         });
 
         this.createHelpOverlay();
-
         this.createOnScreenControls(HX, HY + HH + 10);
-
-        // ── Fullscreen Button (Bottom-Left, Semi-transparent) ──
-        const fsW = 100, fsH = 40;
-        const fsX = 20, fsY = GAME_H - fsH - 20;
-        this.btnFullscreen = this.add.graphics().setScrollFactor(0).setDepth(100).setAlpha(0.4);
-        const drawFsBtn = (isOver: boolean) => {
-            this.btnFullscreen.clear();
-            this.btnFullscreen.fillStyle(isOver ? 0x5599ff : 0x224477, 0.8);
-            this.btnFullscreen.fillRoundedRect(fsX, fsY, fsW, fsH, 8);
-            this.btnFullscreen.lineStyle(2, 0xffffff, 0.9);
-            this.btnFullscreen.strokeRoundedRect(fsX, fsY, fsW, fsH, 8);
-        };
-        drawFsBtn(false);
-
-        this.txtFullscreen = this.add.text(fsX + fsW / 2, fsY + fsH / 2, "FULLSCREEN", {
-            fontFamily: "'Press Start 2P'", fontSize: '12px', color: '#ffffff'
-        }).setOrigin(0.5).setScrollFactor(0).setDepth(101).setAlpha(0.6);
-
-        this.fullscreenZone = this.add.zone(fsX + fsW / 2, fsY + fsH / 2, fsW, fsH)
-            .setOrigin(0.5).setScrollFactor(0).setDepth(102).setInteractive({ useHandCursor: true });
-
-        this.fullscreenZone.on('pointerover', () => drawFsBtn(true));
-        this.fullscreenZone.on('pointerout', () => drawFsBtn(false));
-        this.fullscreenZone.on('pointerup', () => {
-            if (this.scale.isFullscreen) {
-                this.scale.stopFullscreen();
-            } else {
-                this.scale.startFullscreen();
-            }
-        });
 
 
         // ── Move UI ──
@@ -754,33 +751,34 @@ export class GameScene extends Phaser.Scene {
 
         this.btnFire = this.add.graphics().setScrollFactor(0).setDepth(30);
         const drawFireState = (isDown: boolean) => {
+            const fireW = 90, fireH = 90;
             this.btnFire.clear();
             this.btnFire.fillStyle(isDown ? 0xff4444 : 0xaa2222, isDown ? 0.9 : 0.7);
-            this.btnFire.fillRoundedRect(fX, fY, fireW, fireH, 16);
+            this.btnFire.fillRoundedRect(-fireW / 2, -fireH / 2, fireW, fireH, 16);
             this.btnFire.lineStyle(4, 0xffaaaa, 0.9);
-            this.btnFire.strokeRoundedRect(fX, fY, fireW, fireH, 16);
+            this.btnFire.strokeRoundedRect(-fireW / 2, -fireH / 2, fireW, fireH, 16);
         };
         drawFireState(false);
 
-        this.txtFire = this.add.text(fX + fireW / 2, fY + fireH / 2, "FIRE", {
+        this.txtFire = this.add.text(0, 0, "FIRE", {
             fontFamily: "'Press Start 2P', Arial",
             fontSize: '18px',
             color: '#ffffff',
             shadow: { offsetX: 2, offsetY: 2, color: '#000000', fill: true }
         }).setOrigin(0.5).setScrollFactor(0).setDepth(31);
 
-        const fireZone = this.add.zone(fX + fireW / 2, fY + fireH / 2, fireW, fireH)
+        this.fireZone = this.add.zone(0, 0, 90, 90)
             .setOrigin(0.5).setScrollFactor(0).setDepth(32).setInteractive({ useHandCursor: true });
 
-        fireZone.on('pointerdown', () => {
+        this.fireZone.on('pointerdown', () => {
             drawFireState(true);
             if (this.phase === "AIMING" && !this.aiActing) {
                 if (this.currentTurn === "A") this.fire(this.tanks.A);
                 else if (this.gameMode === 'double') this.fire(this.tanks.B);
             }
         });
-        fireZone.on('pointerup', () => drawFireState(false));
-        fireZone.on('pointerout', () => drawFireState(false));
+        this.fireZone.on('pointerup', () => drawFireState(false));
+        this.fireZone.on('pointerout', () => drawFireState(false));
     }
 
     update(_time: number, deltaMs: number) {
@@ -2049,15 +2047,33 @@ export class GameScene extends Phaser.Scene {
             this.trailPoints = [];
         }
 
-        // ── D-pad Visibility ──
+        // ── D-pad & FIRE Visibility/Position ──
         this.dpad1Group.forEach(obj => (obj as any).setVisible(false));
         this.dpad2Group.forEach(obj => (obj as any).setVisible(false));
+        this.btnFire.setVisible(false);
+        this.txtFire.setVisible(false);
+        this.fireZone.setVisible(false);
 
         if (this.phase === "AIMING") {
+            const ww = this.sys.game.canvas.width || GAME_W;
+            const hh = this.sys.game.canvas.height || GAME_H;
+            const fireW = 90, fireH = 90;
+            const fY = hh - fireH / 2 - 30;
+
             if (this.currentTurn === "A") {
                 this.dpad1Group.forEach(obj => (obj as any).setVisible(true));
+                // 1P FIRE: Bottom-Left
+                const fX = 30 + fireW / 2;
+                this.btnFire.setPosition(fX, fY).setVisible(true);
+                this.txtFire.setPosition(fX, fY).setVisible(true);
+                this.fireZone.setPosition(fX, fY).setVisible(true);
             } else if (this.gameMode === 'double') {
                 this.dpad2Group.forEach(obj => (obj as any).setVisible(true));
+                // 2P FIRE: Bottom-Right
+                const fX = ww - 30 - fireW / 2;
+                this.btnFire.setPosition(fX, fY).setVisible(true);
+                this.txtFire.setPosition(fX, fY).setVisible(true);
+                this.fireZone.setPosition(fX, fY).setVisible(true);
             }
         }
 
