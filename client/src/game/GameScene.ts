@@ -63,6 +63,7 @@ export class GameScene extends Phaser.Scene {
     private hudWind!: Phaser.GameObjects.Text;    // 바람 (하늘색)
     private hudAngle!: Phaser.GameObjects.Text;   // 각도 (라임)
     private hudPower!: Phaser.GameObjects.Text;   // 파워 (오렌지)
+    private hudMode!: Phaser.GameObjects.Text;    // 모드 표시 (우측 상단)
 
     // On-screen controls
     private dpadState = { up: false, down: false, left: false, right: false };
@@ -190,6 +191,16 @@ export class GameScene extends Phaser.Scene {
         this.hudWind = this.add.text(HX + 10, HY + 65, '', { ...hsEmph, color: '#77DDFF' }).setScrollFactor(0).setDepth(21);
         this.hudAngle = this.add.text(HX + 160, HY + 65, '', { ...hsEmph, color: '#88FFAA' }).setScrollFactor(0).setDepth(21);
         this.hudPower = this.add.text(HX + 280, HY + 65, '', { ...hsEmph, color: '#FFAA44' }).setScrollFactor(0).setDepth(21);
+
+        // 모드 표시 텍스트 (우측 상단)
+        this.hudMode = this.add.text(GAME_W - 12, 14, '', {
+            fontFamily: "'Press Start 2P'",
+            fontSize: '18px',
+            color: '#ffffff',
+            stroke: '#000000',
+            strokeThickness: 4,
+            shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 0, fill: true }
+        }).setOrigin(1, 0).setScrollFactor(0).setDepth(21);
 
         this.cursors = this.input.keyboard!.createCursorKeys();
         this.keySpace = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
@@ -2143,5 +2154,12 @@ export class GameScene extends Phaser.Scene {
         // 각도 / 파워
         this.hudAngle.setText(`∠${t.angleDeg.toFixed(0)}°`);
         this.hudPower.setText(`⚡${t.power.toFixed(0)}%`);
+
+        // 모드 표시 (우측 상단)
+        if (this.gameMode === 'single') {
+            this.hudMode.setText('1P vs AI 🤖').setColor('#FFD700');
+        } else {
+            this.hudMode.setText('2P vs 2P 🎮').setColor('#88FFCC');
+        }
     }
 }
