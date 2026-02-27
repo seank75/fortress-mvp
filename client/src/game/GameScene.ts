@@ -839,14 +839,14 @@ export class GameScene extends Phaser.Scene {
                 // ── Player B turn ──
                 if (this.gameMode === 'double') {
                     // 2P human controls (numpad via event.code — Mac 호환)
-                    // Numpad8=파워↑, Numpad2=파워↓, Numpad4=각도↑, Numpad6=각도↓
+                    // Numpad8=파워↑, Numpad2=파워↓, Numpad4=각도↓, Numpad6=각도↑
                     const upDown2 = this.numpadDown['Numpad8'] || this.dpad2State.up;
                     const downDown2 = this.numpadDown['Numpad2'] || this.dpad2State.down;
                     const leftDown2 = this.numpadDown['Numpad4'] || this.dpad2State.left;
                     const rightDown2 = this.numpadDown['Numpad6'] || this.dpad2State.right;
 
-                    if (leftDown2) t.angleDeg = clamp(t.angleDeg + 0.8, 0, 180);
-                    if (rightDown2) t.angleDeg = clamp(t.angleDeg - 0.8, 0, 180);
+                    if (leftDown2) t.angleDeg = clamp(t.angleDeg - 0.8, 0, 180);
+                    if (rightDown2) t.angleDeg = clamp(t.angleDeg + 0.8, 0, 180);
                     if (upDown2) t.power = clamp(t.power + 0.7, 0, 100);
                     if (downDown2) t.power = clamp(t.power - 0.7, 0, 100);
 
