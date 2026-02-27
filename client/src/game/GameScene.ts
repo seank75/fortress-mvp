@@ -2097,8 +2097,8 @@ export class GameScene extends Phaser.Scene {
             const tb = this.tanks.B;
             drawMoveUI(
                 tb, this.moveBtnLeft2, this.moveBtnRight2, this.moveProgressBar2,
-                this.key2MoveLeft.isDown || this.isMoveLeftDown2,
-                this.key2MoveRight.isDown || this.isMoveRightDown2
+                this.numpadDown['Numpad1'] || this.isMoveLeftDown2,
+                this.numpadDown['Numpad3'] || this.isMoveRightDown2
             );
         }
 
