@@ -102,14 +102,12 @@ export class GameScene extends Phaser.Scene {
     private key1S!: Phaser.Input.Keyboard.Key;
     private key1A!: Phaser.Input.Keyboard.Key;
     private key1D!: Phaser.Input.Keyboard.Key;
-    // 2P keys (numpad)
-    private key2Up!: Phaser.Input.Keyboard.Key;    // Numpad 8 - power up
-    private key2Down!: Phaser.Input.Keyboard.Key;  // Numpad 2 - power down
-    private key2Left!: Phaser.Input.Keyboard.Key;  // Numpad 4 - angle left
-    private key2Right!: Phaser.Input.Keyboard.Key; // Numpad 6 - angle right
-    private key2MoveLeft!: Phaser.Input.Keyboard.Key;  // Numpad 1
-    private key2MoveRight!: Phaser.Input.Keyboard.Key; // Numpad 3
-    private key2Fire!: Phaser.Input.Keyboard.Key;  // Numpad Enter
+    // 2P numpad keys — tracked via event.code (더 맥 키보드 호환)
+    // key2Fire alone stays as Phaser Key (Enter = keyCode 13 works fine)
+    private key2Fire!: Phaser.Input.Keyboard.Key;
+    /** event.code 기반 numpad 상태 (Mac 호환). key = Numpad1,Numpad2,...,Numpad8 etc. */
+    private numpadDown: Record<string, boolean> = {};
+
 
     private isMoveLeftDown: boolean = false;
     private isMoveRightDown: boolean = false;
@@ -213,14 +211,30 @@ export class GameScene extends Phaser.Scene {
         this.key1S = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.S);
         this.key1A = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.A);
         this.key1D = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.D);
-        // 2P numpad keys (raw keyCodes: Numpad1=97, Num2=98, Num3=99, Num4=100, Num6=102, Num8=104)
-        this.key2Up = this.input.keyboard!.addKey(104); // Numpad 8 - power up
-        this.key2Down = this.input.keyboard!.addKey(98);  // Numpad 2 - power down
-        this.key2Left = this.input.keyboard!.addKey(100); // Numpad 4 - angle left
-        this.key2Right = this.input.keyboard!.addKey(102); // Numpad 6 - angle right
-        this.key2MoveLeft = this.input.keyboard!.addKey(97);  // Numpad 1 - move left
-        this.key2MoveRight = this.input.keyboard!.addKey(99);  // Numpad 3 - move right
-        this.key2Fire = this.input.keyboard!.addKey(13);  // Enter / Numpad Enter
+        this.key2Fire = this.input.keyboard!.addKey(13); // Enter / Numpad Enter
+
+        // --- 2P Numpad (or main number row) workaround for Mac ---
+        // Some Mac external keyboards do not send proper Numpad event.code.
+        // We listen for event.key literally ('1', '2', '8', etc.) and map them.
+        const keyMap: Record<string, string> = {
+            '1': 'Numpad1',
+            '2': 'Numpad2',
+            '3': 'Numpad3',
+            '4': 'Numpad4',
+            '6': 'Numpad6',
+            '8': 'Numpad8',
+        };
+        window.addEventListener('keydown', (e: KeyboardEvent) => {
+            const mapped = keyMap[e.key];
+            if (mapped) {
+                this.numpadDown[mapped] = true;
+                e.preventDefault();
+            }
+        });
+        window.addEventListener('keyup', (e: KeyboardEvent) => {
+            const mapped = keyMap[e.key];
+            if (mapped) this.numpadDown[mapped] = false;
+        });
 
         // ── Help + Mode Buttons (HUD 우측) ──
         const helpBtnSize = 30;
@@ -270,8 +284,8 @@ export class GameScene extends Phaser.Scene {
                 gfx.strokeRoundedRect(bx, by, bw, bh, 5);
             };
             draw();
-            this.add.text(bx + bw / 2, by + bh / 2, label, {
-                fontFamily: "'Press Start 2P'", fontSize: '9px', color: '#ffffff'
+            this.add.text(bx + bw / 2, by + bh / 2 + 1, label, {
+                fontFamily: "'Press Start 2P'", fontSize: '16px', color: '#ffffff'
             }).setOrigin(0.5).setScrollFactor(0).setDepth(23);
             const zone = this.add.zone(bx + bw / 2, by + bh / 2, bw, bh)
                 .setOrigin(0.5).setScrollFactor(0).setDepth(24)
@@ -824,22 +838,23 @@ export class GameScene extends Phaser.Scene {
             } else {
                 // ── Player B turn ──
                 if (this.gameMode === 'double') {
-                    // 2P human controls (numpad)
-                    const upDown2 = this.key2Up.isDown || this.dpad2State.up;
-                    const downDown2 = this.key2Down.isDown || this.dpad2State.down;
-                    const leftDown2 = this.key2Left.isDown || this.dpad2State.left;
-                    const rightDown2 = this.key2Right.isDown || this.dpad2State.right;
+                    // 2P human controls (numpad via event.code — Mac 호환)
+                    // Numpad8=파워↑, Numpad2=파워↓, Numpad4=각도←, Numpad6=각도→
+                    const upDown2 = this.numpadDown['Numpad8'] || this.dpad2State.up;
+                    const downDown2 = this.numpadDown['Numpad2'] || this.dpad2State.down;
+                    const leftDown2 = this.numpadDown['Numpad4'] || this.dpad2State.left;
+                    const rightDown2 = this.numpadDown['Numpad6'] || this.dpad2State.right;
 
-                    // Tank B faces left, so angle direction is mirrored
                     if (leftDown2) t.angleDeg = clamp(t.angleDeg + 0.8, 0, 180);
                     if (rightDown2) t.angleDeg = clamp(t.angleDeg - 0.8, 0, 180);
                     if (upDown2) t.power = clamp(t.power + 0.7, 0, 100);
                     if (downDown2) t.power = clamp(t.power - 0.7, 0, 100);
 
-                    // Numpad 1 / 3 for move
+                    // Numpad1=이동←, Numpad3=이동→
                     if (t.moveRemaining > 0) {
-                        const doLeft2 = this.key2MoveLeft.isDown || this.isMoveLeftDown2;
-                        const doRight2 = this.key2MoveRight.isDown || this.isMoveRightDown2;
+                        const doLeft2 = this.numpadDown['Numpad1'] || this.isMoveLeftDown2;
+                        const doRight2 = this.numpadDown['Numpad3'] || this.isMoveRightDown2;
+
                         if (doLeft2 && !doRight2) {
                             const d = Math.min(moveDt, t.moveRemaining);
                             t.x -= d; t.moveRemaining -= d;
