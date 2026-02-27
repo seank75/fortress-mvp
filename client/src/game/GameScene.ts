@@ -341,7 +341,7 @@ export class GameScene extends Phaser.Scene {
         drawFsBtn(false);
 
         this.txtFullscreen = this.add.text(fsX + fsW / 2, fsY + fsH / 2, "FULLSCREEN", {
-            fontFamily: "'Press Start 2P'", fontSize: '8px', color: '#ffffff'
+            fontFamily: "'Press Start 2P'", fontSize: '12px', color: '#ffffff'
         }).setOrigin(0.5).setScrollFactor(0).setDepth(101).setAlpha(0.6);
 
         this.fullscreenZone = this.add.zone(fsX + fsW / 2, fsY + fsH / 2, fsW, fsH)
