@@ -117,6 +117,8 @@ export class GameScene extends Phaser.Scene {
 
     // 2P on-screen controls & move UI
     private dpad2State = { up: false, down: false, left: false, right: false };
+    private dpad1Group: Phaser.GameObjects.GameObject[] = [];
+    private dpad2Group: Phaser.GameObjects.GameObject[] = [];
     private isMoveLeftDown2: boolean = false;
     private isMoveRightDown2: boolean = false;
     private moveBtnLeft2!: Phaser.GameObjects.Container;
@@ -700,84 +702,53 @@ export class GameScene extends Phaser.Scene {
     }
 
     private createOnScreenControls(startX: number, startY: number) {
-        // 방향키 배경 패널 (간단히 반투명 박스)
-        // 위/아래 (파워), 좌/우 (각도) 구성
-        // T 형태로 배치:
-        //      [UP]
-        // [LEFT] [DOWN] [RIGHT]
-        // FIRE 버튼은 우측에 큼지막하게 배치
-
         const btnSize = 60;
         const gap = 10;
         const panelAlpha = 0.5;
 
-        // 공통 버튼 생성 함수
-        const makeBtn = (x: number, y: number, text: string, stateKey: keyof typeof this.dpadState) => {
-            const btn = this.add.graphics().setScrollFactor(0).setDepth(30);
+        const makeDpad = (x: number, y: number, stateObj: any, group: Phaser.GameObjects.GameObject[]) => {
+            const makeBtn = (bx: number, by: number, text: string, stateKey: string) => {
+                const btn = this.add.graphics().setScrollFactor(0).setDepth(30);
+                const drawState = (isDown: boolean) => {
+                    btn.clear();
+                    btn.fillStyle(isDown ? 0xffffff : 0x000000, isDown ? 0.7 : panelAlpha);
+                    btn.fillRoundedRect(bx, by, btnSize, btnSize, 8);
+                    btn.lineStyle(2, 0xaaaaaa, 0.8);
+                    btn.strokeRoundedRect(bx, by, btnSize, btnSize, 8);
+                };
+                drawState(false);
 
-            const drawState = (isDown: boolean) => {
-                btn.clear();
-                btn.fillStyle(isDown ? 0xffffff : 0x000000, isDown ? 0.7 : panelAlpha);
-                btn.fillRoundedRect(x, y, btnSize, btnSize, 8);
-                btn.lineStyle(2, 0xaaaaaa, 0.8);
-                btn.strokeRoundedRect(x, y, btnSize, btnSize, 8);
+                const txt = this.add.text(bx + btnSize / 2, by + btnSize / 2, text, {
+                    fontFamily: 'Arial', fontSize: '24px', color: '#ffffff'
+                }).setOrigin(0.5).setScrollFactor(0).setDepth(31);
+
+                const zone = this.add.zone(bx + btnSize / 2, by + btnSize / 2, btnSize, btnSize)
+                    .setOrigin(0.5).setScrollFactor(0).setDepth(32).setInteractive({ useHandCursor: true });
+
+                zone.on('pointerdown', () => { stateObj[stateKey] = true; drawState(true); });
+                zone.on('pointerup', () => { stateObj[stateKey] = false; drawState(false); });
+                zone.on('pointerout', () => { stateObj[stateKey] = false; drawState(false); });
+
+                group.push(btn, txt, zone);
             };
 
-            drawState(false);
-
-            // 텍스트 라벨 (화살표 등)
-            this.add.text(x + btnSize / 2, y + btnSize / 2, text, {
-                fontFamily: 'Arial',
-                fontSize: '24px',
-                color: '#ffffff'
-            }).setOrigin(0.5).setScrollFactor(0).setDepth(31);
-
-            // 터치 영역 설정
-            const zone = this.add.zone(x + btnSize / 2, y + btnSize / 2, btnSize, btnSize)
-                .setOrigin(0.5)
-                .setScrollFactor(0)
-                .setDepth(32)
-                .setInteractive({ useHandCursor: true });
-
-            zone.on('pointerdown', () => {
-                this.dpadState[stateKey] = true;
-                drawState(true);
-            });
-            zone.on('pointerup', () => {
-                this.dpadState[stateKey] = false;
-                drawState(false);
-            });
-            zone.on('pointerout', () => {
-                this.dpadState[stateKey] = false;
-                drawState(false);
-            });
-
-            return btn;
+            makeBtn(x + btnSize + gap, y, "▲", "up");
+            makeBtn(x, y + btnSize + gap, "◀", "left");
+            makeBtn(x + btnSize + gap, y + btnSize + gap, "▼", "down");
+            makeBtn(x + (btnSize + gap) * 2, y + btnSize + gap, "▶", "right");
         };
 
-        // D-패드 배치
-        // (startX, startY)는 HUD 왼쪽 아래 기준점
-        const padX = startX + 10;
-        const padY = startY + 20;
+        // 1P D-Pad (Left)
+        makeDpad(startX + 10, startY + 20, this.dpadState, this.dpad1Group);
 
-        makeBtn(padX + btnSize + gap, padY, "▲", "up");
-        makeBtn(padX, padY + btnSize + gap, "◀", "left");
-        makeBtn(padX + btnSize + gap, padY + btnSize + gap, "▼", "down");
-        makeBtn(padX + (btnSize + gap) * 2, padY + btnSize + gap, "▶", "right");
+        // 2P D-Pad (Right)
+        const ww = this.sys.game.canvas.width || GAME_W;
+        const padW = (btnSize + gap) * 3 - gap;
+        makeDpad(ww - padW - 20, startY + 20, this.dpad2State, this.dpad2Group);
 
-        // FIRE 버튼 (더 크게, 우측 하단 쯤에)
-        const fireW = 90;
-        const fireH = 90;
-        const fireX = GAME_W - fireW - Math.max(20, (1 - (GAME_W / WORLD_W)) * 200); // 화면 크기에 따라 우하단 고정 처리용 // 임시 상수화. 패럴랙스나 캠 스크롤 시 setScrollFactor(0)이므로 화면 고정 좌표 사용
-        const fireFixedX = 800 - fireW - 20; // 게임뷰 너비가 800이라고 가정 (config 참고). 실제로는 window.innerWidth 쓰거나 GAME_W 사용.
-        // Game config가 GAME_W를 800이나 1200으로 설정했을 수 있음.
-
-        // 하지만 GAME_W 상수를 그대로 쓰면 된다.
-
-        // 우리는 화면에 고정할 거라 config에 등록된 너비값을 알아야 함. 
-        const ww = this.sys.game.canvas.width;
-        const hh = this.sys.game.canvas.height;
-
+        // FIRE 버튼 (더 크게, 우측 하단)
+        const fireW = 90, fireH = 90;
+        const hh = this.sys.game.canvas.height || GAME_H;
         const fX = ww - fireW - 30;
         const fY = hh - fireH - 30;
 
@@ -799,19 +770,13 @@ export class GameScene extends Phaser.Scene {
         }).setOrigin(0.5).setScrollFactor(0).setDepth(31);
 
         const fireZone = this.add.zone(fX + fireW / 2, fY + fireH / 2, fireW, fireH)
-            .setOrigin(0.5)
-            .setScrollFactor(0)
-            .setDepth(32)
-            .setInteractive({ useHandCursor: true });
+            .setOrigin(0.5).setScrollFactor(0).setDepth(32).setInteractive({ useHandCursor: true });
 
         fireZone.on('pointerdown', () => {
             drawFireState(true);
             if (this.phase === "AIMING" && !this.aiActing) {
-                if (this.currentTurn === "A") {
-                    this.fire(this.tanks.A);
-                } else if (this.gameMode === 'double') {
-                    this.fire(this.tanks.B);
-                }
+                if (this.currentTurn === "A") this.fire(this.tanks.A);
+                else if (this.gameMode === 'double') this.fire(this.tanks.B);
             }
         });
         fireZone.on('pointerup', () => drawFireState(false));
@@ -2082,6 +2047,18 @@ export class GameScene extends Phaser.Scene {
         } else {
             this.sprBullet.setVisible(false);
             this.trailPoints = [];
+        }
+
+        // ── D-pad Visibility ──
+        this.dpad1Group.forEach(obj => (obj as any).setVisible(false));
+        this.dpad2Group.forEach(obj => (obj as any).setVisible(false));
+
+        if (this.phase === "AIMING") {
+            if (this.currentTurn === "A") {
+                this.dpad1Group.forEach(obj => (obj as any).setVisible(true));
+            } else if (this.gameMode === 'double') {
+                this.dpad2Group.forEach(obj => (obj as any).setVisible(true));
+            }
         }
 
         // ── Move UI 업데이트 ──
