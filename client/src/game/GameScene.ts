@@ -130,6 +130,10 @@ export class GameScene extends Phaser.Scene {
     private modeBtn2P!: Phaser.GameObjects.Graphics;
     private modeTxt2P!: Phaser.GameObjects.Text;
 
+    // Help overlay
+    private helpOverlay!: Phaser.GameObjects.Container;
+    private isHelpOpen: boolean = false;
+
     preload() {
         this.load.image("tankA", "assets/tankA.png");
         this.load.image("tankB", "assets/tankB.png");
@@ -206,8 +210,38 @@ export class GameScene extends Phaser.Scene {
         this.key2MoveLeft = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.NUMPAD_ONE);
         this.key2MoveRight = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.NUMPAD_THREE);
         this.key2Fire = this.input.keyboard!.addKey(13); // Enter / Numpad Enter
+        // ── Help Button (HUD 우측 작은 ? 버튼) ──
+        const helpBtnSize = 30;
+        const helpBtnX = HX + HW + 8;
+        const helpBtnY = HY;
+        const helpGfx = this.add.graphics().setScrollFactor(0).setDepth(22);
+        const drawHelp = (over: boolean) => {
+            helpGfx.clear();
+            helpGfx.fillStyle(over ? 0x5599ff : 0x224477, 0.9);
+            helpGfx.fillRoundedRect(helpBtnX, helpBtnY, helpBtnSize, helpBtnSize, 6);
+            helpGfx.lineStyle(2, 0x88bbff, 0.9);
+            helpGfx.strokeRoundedRect(helpBtnX, helpBtnY, helpBtnSize, helpBtnSize, 6);
+        };
+        drawHelp(false);
+        this.add.text(helpBtnX + helpBtnSize / 2, helpBtnY + helpBtnSize / 2, '?', {
+            fontFamily: "'Press Start 2P'", fontSize: '14px', color: '#ffffff'
+        }).setOrigin(0.5).setScrollFactor(0).setDepth(23);
+
+        const helpZone = this.add.zone(
+            helpBtnX + helpBtnSize / 2, helpBtnY + helpBtnSize / 2,
+            helpBtnSize, helpBtnSize
+        ).setOrigin(0.5).setScrollFactor(0).setDepth(24).setInteractive({ useHandCursor: true });
+        helpZone.on('pointerover', () => drawHelp(true));
+        helpZone.on('pointerout', () => drawHelp(false));
+        helpZone.on('pointerup', () => {
+            this.isHelpOpen = !this.isHelpOpen;
+            this.helpOverlay.setVisible(this.isHelpOpen);
+        });
+
+        this.createHelpOverlay();
 
         this.createOnScreenControls(HX, HY + HH + 10);
+
 
         // ── Move UI ──
         this.moveProgressBar = this.add.graphics({ x: 0, y: 0 }).setDepth(30).setVisible(false);
@@ -433,8 +467,83 @@ export class GameScene extends Phaser.Scene {
         });
     }
 
+    private createHelpOverlay() {
+        const W = 480, H = 320;
+        const OX = 10, OY = 110; // HUD 아래에서 시작
+
+        const items: Phaser.GameObjects.GameObject[] = [];
+
+        // 배경 패널
+        const bg = this.add.graphics();
+        bg.fillStyle(0x000d1a, 0.88);
+        bg.fillRoundedRect(OX, OY, W, H, 12);
+        bg.lineStyle(2, 0x3a7fc1, 1.0);
+        bg.strokeRoundedRect(OX, OY, W, H, 12);
+        items.push(bg);
+
+        const px = OX + 16, py = OY + 14;
+        const fs = { fontFamily: "'Press Start 2P'", fontSize: '9px', color: '#ffffff' };
+        const fsHdr = { fontFamily: "'Press Start 2P'", fontSize: '10px', color: '#FFD700' };
+        const fsKey = { fontFamily: "'Press Start 2P'", fontSize: '8px', color: '#88ddff' };
+        const fsVal = { fontFamily: "'Press Start 2P'", fontSize: '8px', color: '#cccccc' };
+
+        // 제목
+        items.push(this.add.text(px, py, '[ KEYBOARD CONTROLS ]', fsHdr));
+
+        // 1P 컬럼 헤더
+        const col1x = px, col2x = px + 240;
+        const rowH = 22;
+        let row = py + 26;
+
+        items.push(this.add.text(col1x, row, '=== 1 PLAYER ===', { ...fs, color: '#ff8866' }));
+        items.push(this.add.text(col2x, row, '=== 2 PLAYER ===', { ...fs, color: '#66ddff' }));
+        row += rowH;
+
+        const table1 = [
+            ['A / D', '포탑 각도'],
+            ['W / S', '발사 파워'],
+            ['Z / C', '탱크 이동'],
+            ['SPACE', '발사'],
+            ['  -  ', '  -  '],
+            ['◀ ▶', '포탑 각도'],
+            ['▲ ▼', '발사 파워'],
+        ];
+        const table2 = [
+            ['Num 4 / 6', '포탑 각도'],
+            ['Num 8 / 2', '발사 파워'],
+            ['Num 1 / 3', '탱크 이동'],
+            ['Enter', '발사'],
+        ];
+
+        const rowCount = Math.max(table1.length, table2.length);
+        for (let i = 0; i < rowCount; i++) {
+            const r1 = table1[i];
+            const r2 = table2[i];
+            if (r1) {
+                items.push(this.add.text(col1x, row, r1[0], fsKey));
+                items.push(this.add.text(col1x + 80, row, r1[1], fsVal));
+            }
+            if (r2) {
+                items.push(this.add.text(col2x, row, r2[0], fsKey));
+                items.push(this.add.text(col2x + 90, row, r2[1], fsVal));
+            }
+            row += rowH;
+        }
+
+        // 닫기 힌트
+        items.push(this.add.text(OX + W / 2, OY + H - 18, '[ ? ] 버튼을 다시 눌러 닫기', {
+            fontFamily: "'Press Start 2P'", fontSize: '8px', color: '#888888'
+        }).setOrigin(0.5));
+
+        // 모든 아이템을 컨테이너로 묶고 스크롤 고정
+        this.helpOverlay = this.add.container(0, 0, items)
+            .setScrollFactor(0)
+            .setDepth(40)
+            .setVisible(false);
+    }
 
     private handleRestart() {
+
         this.tweens.killTweensOf(this.gameOverTitle);
         this.tweens.killTweensOf(this.gameOverWinner);
         this.tweens.killTweensOf(this.gameOverHint);
