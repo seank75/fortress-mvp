@@ -205,38 +205,29 @@ export class GameScene extends Phaser.Scene {
         }).setOrigin(1, 0).setScrollFactor(0).setDepth(21);
 
         this.cursors = this.input.keyboard!.createCursorKeys();
-        this.keySpace = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
-        this.keyR = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.R);
+        this.keySpace = this.input.keyboard!.addKey('SPACE');
+        this.keyR = this.input.keyboard!.addKey('R');
         // 1P move: Q (left), E (right)
-        this.keyMoveLeft = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.Q);
-        this.keyMoveRight = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.E);
+        this.keyMoveLeft = this.input.keyboard!.addKey('Q');
+        this.keyMoveRight = this.input.keyboard!.addKey('E');
         // 1P aiming: W/S/A/D
-        this.key1W = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.W);
-        this.key1S = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.S);
-        this.key1A = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.A);
-        this.key1D = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.D);
-        this.key2Fire = this.input.keyboard!.addKey(13); // Enter / Numpad Enter
+        this.key1W = this.input.keyboard!.addKey('W');
+        this.key1S = this.input.keyboard!.addKey('S');
+        this.key1A = this.input.keyboard!.addKey('A');
+        this.key1D = this.input.keyboard!.addKey('D');
+        this.key2Fire = this.input.keyboard!.addKey('ENTER');
 
-        // --- 2P Numpad (or main number row) workaround for Mac ---
-        // Some Mac external keyboards do not send proper Numpad event.code.
-        // We listen for event.key literally ('1', '2', '8', etc.) and map them.
+        // Mac/IME compatibility workaround for 2P numpad
         const keyMap: Record<string, string> = {
-            '1': 'Numpad1',
-            '2': 'Numpad2',
-            '3': 'Numpad3',
-            '4': 'Numpad4',
-            '6': 'Numpad6',
-            '8': 'Numpad8',
+            '1': 'Numpad1', '2': 'Numpad2', '3': 'Numpad3',
+            '4': 'Numpad4', '6': 'Numpad6', '8': 'Numpad8',
         };
-        window.addEventListener('keydown', (e: KeyboardEvent) => {
-            const mapped = keyMap[e.key];
-            if (mapped) {
-                this.numpadDown[mapped] = true;
-                e.preventDefault();
-            }
+        this.input.keyboard!.on('keydown', (event: KeyboardEvent) => {
+            const mapped = keyMap[event.key];
+            if (mapped) this.numpadDown[mapped] = true;
         });
-        window.addEventListener('keyup', (e: KeyboardEvent) => {
-            const mapped = keyMap[e.key];
+        this.input.keyboard!.on('keyup', (event: KeyboardEvent) => {
+            const mapped = keyMap[event.key];
             if (mapped) this.numpadDown[mapped] = false;
         });
 
@@ -812,7 +803,7 @@ export class GameScene extends Phaser.Scene {
                 if (upDown) t.power = clamp(t.power + 0.7, 0, 100);
                 if (downDown) t.power = clamp(t.power - 0.7, 0, 100);
 
-                // Z / C for move
+                // Q / E for move
                 if (t.moveRemaining > 0) {
                     const doMoveLeft = this.keyMoveLeft.isDown || this.isMoveLeftDown;
                     const doMoveRight = this.keyMoveRight.isDown || this.isMoveRightDown;
